@@ -10,7 +10,6 @@
 #include <iostream>
 #include <algorithm>
 
-
 FunctionCalculator::FunctionCalculator(std::istream& istr, std::ostream& ostr)
     : m_actions(createActions()), m_operations(createOperations()), m_istr(istr), m_ostr(ostr)
 {
@@ -19,40 +18,78 @@ FunctionCalculator::FunctionCalculator(std::istream& istr, std::ostream& ostr)
 
 void FunctionCalculator::run()
 {
+    
     do
     {
-        m_ostr << '\n';
-        printOperations();
-        m_ostr << "Enter command ('help' for the list of available commands): ";
-        const auto action = readAction();
-        runAction(action);
+        try {
+            m_ostr << '\n';
+            printOperations();
+            m_ostr << "Enter command ('help' for the list of available commands): ";
+            const auto action = readAction();
+            runAction(action);
+		}
+		catch (const std::exception& e)
+		{
+			m_ostr << "Error: " << e.what() << '\n';
+		}
+        catch (...)
+        {
+            m_ostr << "Unknown error occurred\n";
+        }
     } while (m_running);
 }
 
 
 void FunctionCalculator::eval()
 {
-    if (auto index = readOperationIndex(); index)
+    try {
+        if (auto index = readOperationIndex(); index)
+        {
+            const auto& operation = m_operations[*index];
+            int inputCount = operation->inputCount();
+            int size = 0;
+            m_istr >> size;
+			if (size <= 0 || size > 5)
+			{
+				m_istr.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+				throw std::out_of_range("Invalid input: plase enter size between 1 - 5");
+			}
+            //chack if there more input in the buffer
+            if (m_istr.peek() != '\n') {
+				m_istr.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+				throw std::invalid_argument("to meny argument for the action");
+            }
+            
+            auto matrixVec = std::vector<Operation::T>();
+            if (inputCount > 1)
+                m_ostr << "\nPlease enter " << inputCount << " matrices:\n";
+
+            for (int i = 0; i < inputCount; ++i)
+            {
+                auto input = Operation::T(size);
+                m_ostr << "\nEnter a " << size << "x" << size << " matrix:\n";
+                m_istr >> input;
+				//if there is more input then throw an exception
+				if (m_istr.peek() != '\n') {
+					m_istr.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+					throw std::invalid_argument("to many items for the matrix");
+				}
+                matrixVec.push_back(input);
+
+            }
+			auto result = operation->compute(matrixVec);
+            m_ostr << "\n";
+            operation->print(m_ostr, matrixVec);
+			m_ostr << " = \n" << result;
+        }
+	}
+	catch (const std::exception& e)
+	{
+		m_ostr << "Error: " << e.what() << '\n';
+	}
+    catch (...)
     {
-        const auto& operation = m_operations[*index];
-		int inputCount = operation->inputCount();
-        int size = 0;
-        m_istr >> size;
-		auto matrixVec = std::vector<Operation::T>();
-        if (inputCount > 1)
-            m_ostr << "\nPlease enter " << inputCount << " matrices:\n";
-
-		for (int i = 0; i < inputCount; ++i)
-		{
-            auto input = Operation::T(size);
-            m_ostr << "\nEnter a " << size << "x" << size << " matrix:\n";
-            m_istr >> input;
-			matrixVec.push_back(input);
-
-		}
-        m_ostr << "\n";
-        operation->print(m_ostr, matrixVec);
-        m_ostr << " = \n" << operation->compute(matrixVec);
+        m_ostr << "Unknown error occurred\n";
     }
 }
 
@@ -100,12 +137,18 @@ void FunctionCalculator::printOperations() const
 std::optional<int> FunctionCalculator::readOperationIndex() const
 {
     int i = 0;
-    m_istr >> i;
-    if (i >= static_cast<int>(m_operations.size()))
-    {
-        m_ostr << "Operation #" << i << " doesn't exist\n";
-        return {};
+	m_istr >> i;
+    if ((m_istr.fail())) {
+		m_istr.clear();
+		m_istr.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+        throw std::invalid_argument("Invalid input: expected an integer for operation index");
     }
+
+    if (i < 0 || i >= static_cast<int>(m_operations.size())) {
+		m_istr.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+        throw std::out_of_range("Operation index out of range");
+    }
+
     return i;
 }
 
@@ -121,7 +164,9 @@ FunctionCalculator::Action FunctionCalculator::readAction() const
         return i->action;
     }
 
-    return Action::Invalid;
+    //return Action::Invalid;
+	m_istr.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+    throw std::invalid_argument("Unknown command: " + action);
 }
 
 
@@ -147,6 +192,8 @@ void FunctionCalculator::runAction(Action action)
         //case Action::Iden:          unaryFunc<Identity>();      break;
         //case Action::Tran:          unaryFunc<Transpose>();      break;
         case Action::Scal:          unaryWithIntFunc<Scalar>();      break;
+			//need to add a read function from a file with path as a parameter
+		//case Action::Read:         read();                     break;
     }
 }
 
@@ -212,3 +259,21 @@ FunctionCalculator::OperationList FunctionCalculator::createOperations() const
         std::make_shared<Transpose>(),
     };
 }
+
+//void FunctionCalculator::read()
+//{
+//	std::string path;
+//	m_istr >> path;
+//	if (path.empty())
+//	{
+//		m_istr.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+//		throw std::invalid_argument("Invalid input: expected a file path");
+//	}
+//	//read from file
+//	std::ifstream file(path);
+//	if (!file.is_open())
+//	{
+//		m_istr.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+//		throw std::invalid_argument("Invalid input: file not found");
+//	}
+//}

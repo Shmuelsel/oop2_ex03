@@ -67,11 +67,27 @@ inline std::ostream& operator<<(std::ostream& ostr, const SquareMatrix<int>& mat
 
 inline std::istream& operator>>(std::istream& istr, SquareMatrix<int>& matrix)
 {
+	//istr.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+	//if there is more input then trow an exception
+	
 	for (int i = 0; i < matrix.size(); ++i)
 	{
 		for (int j = 0; j < matrix.size(); ++j)
 		{
 			istr >> matrix(i, j);
+			if (istr.fail())
+			{
+				istr.clear();
+				istr.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+				throw std::invalid_argument("Invalid input: expected an integer for matrix");
+			}
+			//chack if not bigger than 1000 or smaller than -1024
+			if (matrix(i, j) > 1000 || matrix(i, j) < -1024)
+			{
+				istr.clear();
+				istr.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+				throw std::out_of_range("Matrix value is out of range");
+			}
 		}
 	}
 	return istr;
@@ -122,6 +138,11 @@ SquareMatrix<T>& SquareMatrix<T>::operator+=(const SquareMatrix& rhs)
 		for (int j = 0; j < m_size; ++j)
 		{
 			m_matrix[i][j] += rhs.m_matrix[i][j];
+			//chack if not bigger than 1000
+			if (m_matrix[i][j] > 1000)
+			{
+				throw std::out_of_range("Matrix value is out of range");
+			}
 		}
 	}
 	return *this;
@@ -135,6 +156,11 @@ SquareMatrix<T>& SquareMatrix<T>::operator-=(const SquareMatrix& rhs)
 		for (int j = 0; j < m_size; ++j)
 		{
 			m_matrix[i][j] -= rhs.m_matrix[i][j];
+			//chack if not small than -1024
+			if (m_matrix[i][j] < -1024)
+			{
+				throw std::out_of_range("Matrix value is out of range");
+			}
 		}
 	}
 	return *this;
@@ -162,6 +188,11 @@ SquareMatrix<T> SquareMatrix<T>::operator*(const T& scalar) const
 		for (int j = 0; j < m_size; ++j)
 		{
 			result(i, j) *= scalar;
+			//chack if not small than -1024 or bigger than 1000
+			if (result(i, j) < -1024 || result(i, j) > 1000)
+			{
+				throw std::out_of_range("Matrix value is out of range");
+			}
 		}
 	}
 	return result;
