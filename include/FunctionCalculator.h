@@ -18,15 +18,15 @@ public:
     void run();
 
 private:
-    void eval();
-    void del();
+    void eval(std::istream& in);
+    void del(std::istream& in);
     void help();
     void exit();
 
     template <typename FuncType>
-    void binaryFunc()
+    void binaryFunc(std::istream& in)
     {
-        if (auto f0 = readOperationIndex(), f1 = readOperationIndex(); f0 && f1)
+        if (auto f0 = readOperationIndex(in), f1 = readOperationIndex(in); f0 && f1)
         {
             m_operations.push_back(std::make_shared<FuncType>(m_operations[*f0], m_operations[*f1]));
         }
@@ -38,10 +38,10 @@ private:
     	m_operations.push_back(std::make_shared<FuncType>());
 	}
     template <typename FuncType>
-    void unaryWithIntFunc()
+    void unaryWithIntFunc(std::istream& in)
     {
         int i = 0;
-        m_istr >> i;
+        in >> i;
         m_operations.push_back(std::make_shared<FuncType>(i));
     }
     void printOperations() const;
@@ -60,6 +60,7 @@ private:
         Del,
         Help,
         Exit,
+		Read,
     };
 
     struct ActionDetails
@@ -78,12 +79,12 @@ private:
     std::istream& m_istr;
     std::ostream& m_ostr;
 
-    std::optional<int> readOperationIndex() const;
+    std::optional<int> readOperationIndex(std::istream& in) const;
     Action readAction() const;
 
     void runAction(Action action);
 
     ActionMap createActions() const;
     OperationList createOperations() const ;
-    //void read();
+    void read();
 };

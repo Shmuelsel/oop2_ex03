@@ -9,6 +9,8 @@
 
 #include <iostream>
 #include <algorithm>
+#include <fstream>
+#include <sstream>
 
 FunctionCalculator::FunctionCalculator(std::istream& istr, std::ostream& ostr)
     : m_actions(createActions()), m_operations(createOperations()), m_istr(istr), m_ostr(ostr)
@@ -40,23 +42,23 @@ void FunctionCalculator::run()
 }
 
 
-void FunctionCalculator::eval()
+void FunctionCalculator::eval(std::istream& in)
 {
     try {
-        if (auto index = readOperationIndex(); index)
+        if (auto index = readOperationIndex(in); index)
         {
             const auto& operation = m_operations[*index];
             int inputCount = operation->inputCount();
             int size = 0;
-            m_istr >> size;
+            in >> size;
 			if (size <= 0 || size > 5)
 			{
-				m_istr.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+                in.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 				throw std::out_of_range("Invalid input: plase enter size between 1 - 5");
 			}
-            //chack if there more input in the buffer
-            if (m_istr.peek() != '\n') {
-				m_istr.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+			//chack if there more input in the buffer only if "in" is from file and not from cin
+            if (in.peek() != '\n') {
+                in.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 				throw std::invalid_argument("to meny argument for the action");
             }
             
@@ -68,10 +70,10 @@ void FunctionCalculator::eval()
             {
                 auto input = Operation::T(size);
                 m_ostr << "\nEnter a " << size << "x" << size << " matrix:\n";
-                m_istr >> input;
+                in >> input;
 				//if there is more input then throw an exception
-				if (m_istr.peek() != '\n') {
-					m_istr.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+				if (in.peek() != '\n') {
+                    in.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 					throw std::invalid_argument("to many items for the matrix");
 				}
                 matrixVec.push_back(input);
@@ -94,9 +96,9 @@ void FunctionCalculator::eval()
 }
 
 
-void FunctionCalculator::del()
+void FunctionCalculator::del(std::istream& in)
 {
-    if (auto i = readOperationIndex(); i)
+    if (auto i = readOperationIndex(in); i)
     {
         m_operations.erase(m_operations.begin() + *i);
     }
@@ -134,18 +136,18 @@ void FunctionCalculator::printOperations() const
 }
 
 
-std::optional<int> FunctionCalculator::readOperationIndex() const
+std::optional<int> FunctionCalculator::readOperationIndex(std::istream& in) const
 {
     int i = 0;
-	m_istr >> i;
-    if ((m_istr.fail())) {
-		m_istr.clear();
-		m_istr.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+	in >> i;
+    if ((in.fail())) {
+		in.clear();
+		in.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
         throw std::invalid_argument("Invalid input: expected an integer for operation index");
     }
 
     if (i < 0 || i >= static_cast<int>(m_operations.size())) {
-		m_istr.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+		in.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
         throw std::out_of_range("Operation index out of range");
     }
 
@@ -182,18 +184,15 @@ void FunctionCalculator::runAction(Action action)
             m_ostr << "Command not found\n";
             break;
 
-        case Action::Eval:         eval();                     break;
-        case Action::Add:          binaryFunc<Add>();          break;
-        case Action::Sub:          binaryFunc<Sub>();          break;
-        case Action::Comp:         binaryFunc<Comp>();         break;
-        case Action::Del:          del();                      break;
-        case Action::Help:         help();                     break;
-        case Action::Exit:         exit();                     break;
-        //case Action::Iden:          unaryFunc<Identity>();      break;
-        //case Action::Tran:          unaryFunc<Transpose>();      break;
-        case Action::Scal:          unaryWithIntFunc<Scalar>();      break;
-			//need to add a read function from a file with path as a parameter
-		//case Action::Read:         read();                     break;
+        case Action::Eval:         eval(m_istr);                     break;
+        case Action::Add:          binaryFunc<Add>(m_istr);          break;
+        case Action::Sub:          binaryFunc<Sub>(m_istr);          break;
+        case Action::Comp:         binaryFunc<Comp>(m_istr);         break;
+        case Action::Del:          del(m_istr);                      break;
+        case Action::Help:         help();                           break;
+        case Action::Exit:         exit();                           break;
+        case Action::Scal:         unaryWithIntFunc<Scalar>(m_istr); break;
+        case Action::Read:         read();                           break;
     }
 }
 
@@ -246,6 +245,11 @@ FunctionCalculator::ActionMap FunctionCalculator::createActions() const
             "exit",
             " - exit the program",
             Action::Exit
+        },
+        {
+            "read",
+            " - read command from file",
+			Action::Read
         }
     };
 }
@@ -260,20 +264,59 @@ FunctionCalculator::OperationList FunctionCalculator::createOperations() const
     };
 }
 
-//void FunctionCalculator::read()
-//{
-//	std::string path;
-//	m_istr >> path;
-//	if (path.empty())
-//	{
-//		m_istr.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-//		throw std::invalid_argument("Invalid input: expected a file path");
-//	}
-//	//read from file
-//	std::ifstream file(path);
-//	if (!file.is_open())
-//	{
-//		m_istr.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-//		throw std::invalid_argument("Invalid input: file not found");
-//	}
-//}
+void FunctionCalculator::read()
+{
+    std::string path;
+    m_istr >> path;
+
+    if (path.empty()) {
+        m_istr.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+        throw std::invalid_argument("Invalid input: expected a file path");
+    }
+
+    std::ifstream file(path);
+    if (!file.is_open()) {
+        m_istr.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+        throw std::invalid_argument("Invalid input: file not found");
+    }
+
+    std::string line;
+    while (std::getline(file, line)) {
+        std::istringstream iss(line);
+        std::string command;
+        iss >> command;
+
+        try {
+            if (command == "eval") {
+                eval(iss);
+            }
+            else if (command == "add") {
+                binaryFunc<Add>(iss);
+            }
+            else if (command == "scal") {
+				unaryWithIntFunc<Scalar>(iss);
+            }
+            else if (command == "sub") {
+                binaryFunc<Sub>(iss);
+            }
+            else if (command == "comp") {
+                binaryFunc<Comp>(iss);
+            }
+            else if (command == "del") {
+                del(iss);
+            }
+            else if (command == "help") {
+                help();
+            }
+            else if (command == "exit") {
+                exit();
+            }
+            else {
+                throw std::invalid_argument("Unknown command: " + command);
+            }
+        }
+        catch (const std::exception& e) {
+            m_ostr << "Error in line: " << line << "\nReason: " << e.what() << '\n';
+        }
+    }
+}

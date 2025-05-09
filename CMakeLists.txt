@@ -14,5 +14,7 @@ endif()
 
 add_subdirectory (include)
 add_subdirectory (src)
+add_subdirectory (resources)
+
 
 include (cmake/Zip.cmake)
