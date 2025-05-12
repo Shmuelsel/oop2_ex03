@@ -3,6 +3,8 @@ add 1 2
 add 2 3
 add 3 4
 sub 4 5
+eval 1 2
+1 2 3 4
 sub 5 1
 scal 2
 scal 15

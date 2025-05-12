@@ -70,6 +70,7 @@ void FunctionCalculator::eval(std::istream& in)
             {
                 auto input = Operation::T(size);
                 m_ostr << "\nEnter a " << size << "x" << size << " matrix:\n";
+                
                 in >> input;
 				//if there is more input then throw an exception
 				if (in.peek() != '\n') {
@@ -288,7 +289,18 @@ void FunctionCalculator::read()
 
         try {
             if (command == "eval") {
-                eval(iss);
+                std::string next_line;
+                if (std::getline(file, next_line)) {
+                    // שילוב השורה הנוכחית והשורה הבאה ב-iss
+                    iss.clear(); // ניקוי מצב iss
+                    iss.str(line + " " + next_line); // שילוב השורות
+                    iss.seekg(0); // חזרה להתחלה של iss
+                    iss >> command; // דילוג על המילה "eval" שוב, אם צריך
+                    eval(iss);
+                }
+                else {
+                    throw std::invalid_argument("Missing matrix elements for eval command");
+                }
             }
             else if (command == "add") {
                 binaryFunc<Add>(iss);
