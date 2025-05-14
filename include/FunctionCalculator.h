@@ -22,6 +22,8 @@ private:
     void del(std::istream& in);
     void help();
     void exit();
+	void getOperationSize();
+    void setOperationSize(std::istream& in);
 
     template <typename FuncType>
     void binaryFunc(std::istream& in)
@@ -61,6 +63,7 @@ private:
         Help,
         Exit,
 		Read,
+		Resize,
     };
 
     struct ActionDetails
@@ -78,11 +81,13 @@ private:
     bool m_running = true;
     std::istream& m_istr;
     std::ostream& m_ostr;
+	int m_operationSize = 0;
+	bool m_isMaxFunc = false;
 
     std::optional<int> readOperationIndex(std::istream& in) const;
-    Action readAction() const;
+    Action readAction(std::istream& in) const;
 
-    void runAction(Action action);
+    void runAction(Action action, std::istream& in);
 
     ActionMap createActions() const;
     OperationList createOperations() const ;

@@ -20,25 +20,29 @@ FunctionCalculator::FunctionCalculator(std::istream& istr, std::ostream& ostr)
 
 void FunctionCalculator::run()
 {
-    
-    do
-    {
-        try {
-            m_ostr << '\n';
-            printOperations();
-            m_ostr << "Enter command ('help' for the list of available commands): ";
-            const auto action = readAction();
-            runAction(action);
-		}
-		catch (const std::exception& e)
-		{
-			m_ostr << "Error: " << e.what() << '\n';
-		}
-        catch (...)
+        do
         {
-            m_ostr << "Unknown error occurred\n";
-        }
-    } while (m_running);
+            try {
+                if (!m_isMaxFunc) {
+                    getOperationSize();
+                }
+                else{
+                    m_ostr << '\n';
+                    printOperations();
+                    m_ostr << "Enter command ('help' for the list of available commands): ";
+                    const auto action = readAction(m_istr);
+                    runAction(action, m_istr);
+                }
+            }
+            catch (const std::exception& e)
+            {
+                m_ostr << "Error: " << e.what() << '\n';
+            }
+            catch (...)
+            {
+                m_ostr << "Unknown error occurred\n";
+            }
+        } while (m_running);
 }
 
 
@@ -56,7 +60,6 @@ void FunctionCalculator::eval(std::istream& in)
                 in.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 				throw std::out_of_range("Invalid input: plase enter size between 1 - 5");
 			}
-			//chack if there more input in the buffer only if "in" is from file and not from cin
             if (in.peek() != '\n') {
                 in.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 				throw std::invalid_argument("to meny argument for the action");
@@ -72,7 +75,6 @@ void FunctionCalculator::eval(std::istream& in)
                 m_ostr << "\nEnter a " << size << "x" << size << " matrix:\n";
                 
                 in >> input;
-				//if there is more input then throw an exception
 				if (in.peek() != '\n') {
                     in.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 					throw std::invalid_argument("to many items for the matrix");
@@ -99,8 +101,13 @@ void FunctionCalculator::eval(std::istream& in)
 
 void FunctionCalculator::del(std::istream& in)
 {
+	
     if (auto i = readOperationIndex(in); i)
     {
+        if (in.peek() != '\n' && in.peek() != 32) {
+            in.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+            throw std::invalid_argument("to meny argument for the action");
+        }
         m_operations.erase(m_operations.begin() + *i);
     }
 }
@@ -134,6 +141,7 @@ void FunctionCalculator::printOperations() const
         m_ostr << '\n';
     }
     m_ostr << '\n';
+    m_ostr << "Number of operations: " << m_operations.size() << "/" << m_operationSize << '\n' << '\n';
 }
 
 
@@ -155,25 +163,15 @@ std::optional<int> FunctionCalculator::readOperationIndex(std::istream& in) cons
     return i;
 }
 
-
-FunctionCalculator::Action FunctionCalculator::readAction() const
-{
-    auto action = std::string();
-    m_istr >> action;
-
-    const auto i = std::ranges::find(m_actions, action, &ActionDetails::command);
-    if (i != m_actions.end())
-    {
-        return i->action;
-    }
-
-    //return Action::Invalid;
-	m_istr.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-    throw std::invalid_argument("Unknown command: " + action);
+FunctionCalculator::Action FunctionCalculator::readAction(std::istream& in) const {
+    std::string actionStr;
+    in >> actionStr;
+    auto it = std::ranges::find(m_actions, actionStr, &ActionDetails::command);
+    if (it != m_actions.end()) return it->action;
+    throw std::invalid_argument("Unknown command: " + actionStr);
 }
 
-
-void FunctionCalculator::runAction(Action action)
+void FunctionCalculator::runAction(Action action, std::istream& in)
 {
     switch (action)
     {
@@ -185,15 +183,62 @@ void FunctionCalculator::runAction(Action action)
             m_ostr << "Command not found\n";
             break;
 
-        case Action::Eval:         eval(m_istr);                     break;
-        case Action::Add:          binaryFunc<Add>(m_istr);          break;
-        case Action::Sub:          binaryFunc<Sub>(m_istr);          break;
-        case Action::Comp:         binaryFunc<Comp>(m_istr);         break;
-        case Action::Del:          del(m_istr);                      break;
-        case Action::Help:         help();                           break;
-        case Action::Exit:         exit();                           break;
-        case Action::Scal:         unaryWithIntFunc<Scalar>(m_istr); break;
-        case Action::Read:         read();                           break;
+        case Action::Eval:  
+            eval(in);
+            break;
+
+        case Action::Add: 
+			if (m_operations.size() >= m_operationSize)
+			{
+                in.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+				throw std::out_of_range("Operation list is full");
+			}
+            binaryFunc<Add>(in);
+            break;
+
+        case Action::Sub:
+            if (m_operations.size() >= m_operationSize) {
+                in.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+				throw std::out_of_range("Operation list is full");
+            }
+            binaryFunc<Sub>(in);
+            break;
+
+        case Action::Comp:    
+			if (m_operations.size() >= m_operationSize) {
+                in.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+				throw std::out_of_range("Operation list is full");
+			}
+            binaryFunc<Comp>(in);
+            break;
+
+        case Action::Del:   
+            del(in);
+            break;
+
+        case Action::Help:    
+            help();            
+            break;
+
+        case Action::Exit:    
+            exit();           
+            break;
+
+        case Action::Scal:     
+			if (m_operations.size() >= m_operationSize) {
+                in.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+				throw std::out_of_range("Operation list is full");
+			}
+            unaryWithIntFunc<Scalar>(in);
+            break;
+
+        case Action::Read:       
+            read();        
+            break;
+
+		case Action::Resize:
+			setOperationSize(in);
+			break;
     }
 }
 
@@ -251,6 +296,11 @@ FunctionCalculator::ActionMap FunctionCalculator::createActions() const
             "read",
             " - read command from file",
 			Action::Read
+        },
+        {
+            "resize",
+            " - resize the operation list",
+            Action::Resize
         }
     };
 }
@@ -265,70 +315,66 @@ FunctionCalculator::OperationList FunctionCalculator::createOperations() const
     };
 }
 
-void FunctionCalculator::read()
-{
+void FunctionCalculator::read() {
     std::string path;
     m_istr >> path;
-
-    if (path.empty()) {
-        m_istr.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-        throw std::invalid_argument("Invalid input: expected a file path");
-    }
-
     std::ifstream file(path);
-    if (!file.is_open()) {
-        m_istr.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-        throw std::invalid_argument("Invalid input: file not found");
-    }
+    if (!file) throw std::invalid_argument("File not found");
 
-    std::string line;
-    while (std::getline(file, line)) {
-        std::istringstream iss(line);
-        std::string command;
-        iss >> command;
-
+    bool previousRunning = m_running;
+    m_running = true;
+    while (file && m_running) {
         try {
-            if (command == "eval") {
-                std::string next_line;
-                if (std::getline(file, next_line)) {
-                    // שילוב השורה הנוכחית והשורה הבאה ב-iss
-                    iss.clear(); // ניקוי מצב iss
-                    iss.str(line + " " + next_line); // שילוב השורות
-                    iss.seekg(0); // חזרה להתחלה של iss
-                    iss >> command; // דילוג על המילה "eval" שוב, אם צריך
-                    eval(iss);
-                }
-                else {
-                    throw std::invalid_argument("Missing matrix elements for eval command");
-                }
+            if (file.peek() == std::ifstream::traits_type::eof()) {
+                break;
             }
-            else if (command == "add") {
-                binaryFunc<Add>(iss);
-            }
-            else if (command == "scal") {
-				unaryWithIntFunc<Scalar>(iss);
-            }
-            else if (command == "sub") {
-                binaryFunc<Sub>(iss);
-            }
-            else if (command == "comp") {
-                binaryFunc<Comp>(iss);
-            }
-            else if (command == "del") {
-                del(iss);
-            }
-            else if (command == "help") {
-                help();
-            }
-            else if (command == "exit") {
-                exit();
-            }
-            else {
-                throw std::invalid_argument("Unknown command: " + command);
-            }
+            Action action = readAction(file);
+            runAction(action, file);
         }
         catch (const std::exception& e) {
-            m_ostr << "Error in line: " << line << "\nReason: " << e.what() << '\n';
+            m_ostr << "Error in file: " << e.what() << '\n';
+        }
+    }
+    m_running = previousRunning;
+}
+
+void FunctionCalculator::getOperationSize()
+{
+	m_ostr << "Please enter the size of the operation (2-100): ";
+	m_istr >> m_operationSize;
+	if (m_istr.fail()) {
+		m_istr.clear();
+		m_istr.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+		throw std::invalid_argument("Invalid input: expected an integer for operation size");
+	}
+	if (m_operationSize < 2 || m_operationSize > 100)
+	{
+		m_istr.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+		throw std::out_of_range("Invalid input: please enter size between 2 - 100");
+	}
+    m_isMaxFunc = true;
+}
+
+void FunctionCalculator::setOperationSize(std::istream& in)
+{
+    int newSize = 0;
+    in >> newSize;
+    if (newSize > m_operations.size()) {
+        m_operationSize = newSize;
+    }
+    else {
+        m_istr.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+        m_ostr << "The new size is smaller than the current size. Do you want to delete the last operation? (y): ";
+        char answer;
+        m_istr >> answer;
+        if (answer == 'y' || answer == 'Y') {
+            for (int i = m_operationSize - 1; i >= newSize; --i) {
+                m_operations.pop_back();
+            }
+            m_operationSize = newSize;
+        }
+        else {
+            m_istr.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
         }
     }
 }

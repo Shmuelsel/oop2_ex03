@@ -65,7 +65,7 @@ inline std::ostream& operator<<(std::ostream& ostr, const SquareMatrix<int>& mat
 	return ostr;
 }
 
-inline std::istream& operator>>(std::istream& istr, SquareMatrix<int>& matrix)
+inline std::istream& operator>>(std::istream& in, SquareMatrix<int>& matrix)
 {
 	//istr.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 	//if there is more input then trow an exception
@@ -74,23 +74,23 @@ inline std::istream& operator>>(std::istream& istr, SquareMatrix<int>& matrix)
 	{
 		for (int j = 0; j < matrix.size(); ++j)
 		{
-			istr >> matrix(i, j);
-			if (istr.fail())
+			in >> matrix(i, j);
+			if (in.fail())
 			{
-				istr.clear();
-				istr.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+				in.clear();
+				in.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 				throw std::invalid_argument("Invalid input: expected an integer for matrix");
 			}
 			//chack if not bigger than 1000 or smaller than -1024
 			if (matrix(i, j) > 1000 || matrix(i, j) < -1024)
 			{
-				istr.clear();
-				istr.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+				in.clear();
+				in.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 				throw std::out_of_range("Matrix value is out of range");
 			}
 		}
 	}
-	return istr;
+	return in;
 }
 
 // Implementation must be in .h file for the compiler to see it and instantiate
